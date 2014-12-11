@@ -10,7 +10,6 @@ import java.io.IOException;
 import java.io.PrintStream;
 import java.util.Arrays;
 import java.util.HashSet;
-import java.util.Random;
 import java.util.Set;
 
 import org.slf4j.Logger;
@@ -25,8 +24,7 @@ public class Extractor extends Thread {
 
     private String host;
     private String[] otherHosts;
-    private boolean running;
-
+    private int bufferSize;
 
     private class Acknowledger extends Thread {
         private Channel channel;
@@ -74,9 +72,10 @@ public class Extractor extends Thread {
         }
     }
 
-    public Extractor(String host, String[] otherHosts) {
+    public Extractor(String host, String[] otherHosts, String bufferSize) {
         this.host = host;
         this.otherHosts = otherHosts;
+        this.bufferSize = Integer.valueOf(bufferSize);
     }
 
     public void run() {
@@ -109,7 +108,7 @@ public class Extractor extends Thread {
             channel.queueDeclare(QUEUE_NAME, durable, false, false, null);
 
             // Receive unlimited messages when available
-            int prefetchCount = 0;
+            int prefetchCount = bufferSize;
             channel.basicQos(prefetchCount);
 
             // ACK only after successfully processing messages
@@ -142,7 +141,7 @@ public class Extractor extends Thread {
         }
     }
 
-    public static int extract(String[] hosts, String redisServer, String outputFile) {
+    public static int extract(String[] hosts, String redisServer, String outputFile, String bufferSize) {
         // Open log file for writing
         // XXX: How does this handle log rotation?
         try {
@@ -165,7 +164,7 @@ public class Extractor extends Thread {
         for (String host : hostsSet) {
             Set<String> otherHosts = new HashSet<String>(hostsSet);
             otherHosts.remove(host);
-            new Extractor(host, otherHosts.toArray(new String[]{})).start();
+            new Extractor(host, otherHosts.toArray(new String[]{}), bufferSize).start();
         }
 
         // wait forever
